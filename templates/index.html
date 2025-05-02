@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot with Voice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('/static/background.jpg.gif'); /* Correct the path if needed */
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .chat-container {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            width: 600px;
+            height: 500px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-box {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+        .chat-box .user-message, .chat-box .bot-message {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .chat-box .user-message {
+            justify-content: flex-start;
+        }
+        .chat-box .bot-message {
+            justify-content: flex-end;
+        }
+        .chat-box .message-content {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 60%;
+        }
+        .chat-box .user-message .message-content {
+            background: #007bff;
+            color: #fff;
+            border-radius: 10px 10px 10px 0;
+        }
+        .chat-box .bot-message .message-content {
+            background: #28a745;
+            color: #fff;
+            border-radius: 10px 10px 0 10px;
+        }
+        .chat-box img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .input-box {
+            display: flex;
+            align-items: center;
+        }
+        .input-box input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .input-box button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .input-box button:last-child {
+            margin-right: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chatbox"></div>
+        <div class="input-box">
+            <input type="text" id="user-input" placeholder="Type your message here..." onkeydown="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="startVoiceRecognition()">🎤 Voice</button>
+            <button onclick="stopSpeaking()">🛑 Stop</button>
+        </div>
+    </div>
+
+    <script>
+        let utterance;
+
+        function sendMessage() {
+            const userInput = document.getElementById('user-input').value;
+            if (userInput.trim() === '') return;
+
+            const chatbox = document.getElementById('chatbox');
+            chatbox.innerHTML += `<div class="user-message"><img src="/static/user_icon.jpg"><div class="message-content">${userInput}</div></div>`;
+            document.getElementById('user-input').value = '';
+
+            (async () => {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'message': userInput })
+                });
+                const data = await response.json();
+                chatbox.innerHTML += `<div class="bot-message"><div class="message-content">${data.response}</div><img src="/static/bot_icon.jpg"></div>`;
+                chatbox.scrollTop = chatbox.scrollHeight;
+                speak(data.response);
+            })();
+        }
+
+        function speak(text) {
+            utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.2;
+            utterance.pitch = 1;
+            speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeaking() {
+            if (utterance) {
+                speechSynthesis.cancel();
+            }
+        }
+
+        function startVoiceRecognition() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('user-input').value = transcript;
+                sendMessage();
+            };
+
+            recognition.onspeechend = function() {
+                recognition.stop();
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Error occurred in recognition: ' + event.error);
+            };
+        }
+    </script>
+</body>
+</html>
